@@ -8,6 +8,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlin.system.exitProcess
+import android.app.ActivityManager
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example.screen_locker/device_admin"
@@ -34,11 +35,7 @@ class MainActivity: FlutterActivity() {
                 }
                 "lockScreen" -> {
                     if (devicePolicyManager.isAdminActive(componentName)) {
-                        devicePolicyManager.lockNow()
-                        android.os.Handler().postDelayed({
-                            finishAffinity()
-                            exitProcess(0)
-                        }, 500)
+                        lockScreenAndExit()
                         result.success(true)
                     } else {
                         result.error("PERMISSION_DENIED", "Device admin permission not granted", null)
@@ -51,15 +48,26 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    private fun lockScreenAndExit() {
+        devicePolicyManager.lockNow()
+        android.os.Handler().postDelayed({
+            // Remove from recent apps
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            activityManager.appTasks.forEach { task ->
+                task.finishAndRemoveTask()
+            }
+            // Close all activities and exit
+            finishAndRemoveTask()
+            finishAffinity()
+            exitProcess(0)
+        }, 500)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 1) {
             if (devicePolicyManager.isAdminActive(componentName)) {
-                devicePolicyManager.lockNow()
-                android.os.Handler().postDelayed({
-                    finishAffinity()
-                    exitProcess(0)
-                }, 500)
+                lockScreenAndExit()
             }
         }
     }
